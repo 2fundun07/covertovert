@@ -3,15 +3,15 @@
   "send": {
     "parameters": {
       "parameter1": 5,
-      "parameter2": 60,
+      "parameter2": 80,
       "log_file_name": "Example_UDPTimingInterarrivalChannelSender.log"
     }
   },
   "receive": {
     "parameters": {
       "parameter1": 5,
-      "parameter2": 60,
-      "parameter3": 60,
+      "parameter2": 80,
+      "parameter3": 300,
       "log_file_name": "Example_UDPTimingInterarrivalChannelReceiver.log"
     }
   }

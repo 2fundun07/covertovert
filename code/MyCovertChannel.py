@@ -23,6 +23,10 @@ class MyCovertChannel(CovertChannelBase):
         receiver_ip = "172.18.0.3"
         receiver_port = 8000
 
+        packet = IP(dst=receiver_ip) / UDP(dport=receiver_port)
+        super().send(packet)
+        time.sleep(short_delay / 1000)
+
         for  i in range(10):
             packet = IP(dst=receiver_ip) / UDP(dport=receiver_port)
             super().send(packet)
@@ -34,12 +38,15 @@ class MyCovertChannel(CovertChannelBase):
             super().send(packet)
             delay = long_delay
             time.sleep(delay / 1000)
-
+        
         for bit in binary_message:
             packet = IP(dst=receiver_ip) / UDP(dport=receiver_port)
             super().send(packet)
             
-            delay = short_delay if bit == '1' else long_delay
+            if bit == '1':
+                delay = short_delay
+            else:
+                delay = long_delay
             time.sleep(delay / 1000)  # Convert to seconds
         
     def receive(self, parameter1, parameter2, parameter3, log_file_name):
@@ -68,15 +75,21 @@ class MyCovertChannel(CovertChannelBase):
                     network_delay_samples.append(inter_arrival_time)
 
                 elif len(network_delay_samples) == 10 and short_threshold is None:
-                    short_threshold = sum(network_delay_samples) / len(network_delay_samples)
+                    short_threshold = sum(network_delay_samples) / 10
                     network_delay_samples = []
 
                 elif len(network_delay_samples) < 10 and long_threshold is None:
                     network_delay_samples.append(inter_arrival_time)
                 
                 elif len(network_delay_samples) == 10 and long_threshold is None:
-                    long_threshold = sum(network_delay_samples) / len(network_delay_samples)
+                    long_threshold = sum(network_delay_samples) / 10
                     threshold = (short_threshold + long_threshold) / 2
+                    
+                    if inter_arrival_time < threshold:
+                        received_binary_message += '1'
+
+                    elif inter_arrival_time >= threshold:
+                        received_binary_message += '0'
 
                 elif inter_arrival_time < threshold:
                     received_binary_message += '1'
