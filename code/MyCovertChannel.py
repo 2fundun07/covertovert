@@ -25,7 +25,7 @@ class MyCovertChannel(CovertChannelBase):
 
         for bit in binary_message:
             packet = IP(dst=receiver_ip) / UDP(dport=receiver_port)
-            self.send(packet)
+            super().send(packet)
             
             delay = short_delay if bit == '1' else long_delay
             time.sleep(delay / 1000)  # Convert to seconds
