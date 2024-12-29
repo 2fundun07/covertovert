@@ -48,7 +48,7 @@ class MyCovertChannel(CovertChannelBase):
         for bit in message_to_transfer:
             t0 = time.time()
             a += 1
-            print(f"a: {a}, bit: {bit}")
+            #print(f"a: {a}, bit: {bit}")
 
             # Send a packet after the timing delay
             dummy_message = self.generate_random_message()
@@ -94,14 +94,14 @@ class MyCovertChannel(CovertChannelBase):
             else:
                 self.msg_bits += "1"
 
-            print(self.msg_bits)
+            #print(self.msg_bits)
 
             # Convert 8 bits to a character and add it to the message
             if len(self.msg_bits) == 8:
                 convertedMessage = self.convert_eight_bits_to_character(self.msg_bits)
                 self.msg_bits = ""
                 self.received_msg += convertedMessage
-                print(self.received_msg)
+                #print(self.received_msg)
             
             # Stop processing when the termination character is received
             if len(self.received_msg) > 1 and self.received_msg[-1] == ".":
