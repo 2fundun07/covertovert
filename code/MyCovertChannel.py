@@ -1,99 +1,116 @@
 from CovertChannelBase import CovertChannelBase
-from scapy.all import Ether, LLC, Raw, IP, sniff
 import time
-import socket
+from scapy.all import sniff
+from scapy.all import Ether, LLC, Raw, IP
 
 class MyCovertChannel(CovertChannelBase):
     """
-    - You are not allowed to change the file name and class name.
-    - You can edit the class in any way you want (e.g. adding helper functions); however, there must be a "send" and a "receive" function, the covert channel will be triggered by calling these functions.
+    This covert channel exploits timing intervals between packets (inter-arrival times) 
+    to encode and transfer binary information stealthily over the network using LLC packets.
     """
-    def __init__(self, threshold_ms=300, error_ms=150):
+    def __init__(self):
         """
-        - Calls the init function of the parent class.
+        Initializes the covert channel class with necessary variables:
+        - `timestamp` tracks the last packet's arrival time.
+        - `msg_bits` stores bits received from timing intervals.
+        - `received_msg` stores the reconstructed message.
         """
-        super().__init__()
-        self.send_time_0_max = threshold_ms - error_ms
-        self.send_time_1_min = threshold_ms + error_ms
-        self.send_time_1_max = 2 * threshold_ms
-
-        self.receive_time_0_1 = threshold_ms
-        self.receive_time_1_max = 3 * threshold_ms
-        
+        super().__init__()        
         self.timestamp = 0
-        self.message = ""
-        self.lastconvertedMessage = ""
-        self.lastmessage = ""
+        self.msg_bits = ""
+        self.received_msg = ""
 
-    def send(self, log_file_name, parameter1, parameter2):
+    def send(self, log_file_name, threshold_ms, error_ms):
         """
-        - Generates a random binary message using the parent class function.
-        - logs the message
-        - Sends LLC packets with specific inter-arrival times to encode the message, where a short delay encodes 1 and a long delay encodes 0.
+        Encodes a binary message into timing intervals and sends it over the network:
+        - `threshold_ms` defines the timing threshold to distinguish between '0' and '1'.
+        - `error_ms` adds tolerance to handle noise and jitter.
+        - Randomly generated binary messages are logged and then transmitted using LLC packets.
+        - Intervals between packets are modulated to represent '0' or '1'.
         """
-        message_to_transfer = self.generate_random_binary_message_with_logging(log_file_name)
+        message_to_transfer = self.generate_random_binary_message_with_logging(log_file_name, 16, 16)
         llc = LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
         ether = Ether() / IP(dst="receiver") / llc
 
+        # Define timing intervals for '0' and '1' based on the threshold and error
+        max_0_time = threshold_ms - error_ms
+        min_1_time = threshold_ms + error_ms
+        max_1_time = 2 * threshold_ms
+
+        start_time = time.time()
+
+        # Send an initial dummy packet
         dummy_message = self.generate_random_message()
         packet = ether / Raw(dummy_message)
         super().send(packet)
-        
+
+        a = 0
         for bit in message_to_transfer:
+            # Add timing delay based on the bit ('0' or '1')
+            if bit == '0':
+                self.sleep_random_time_ms(0, max_0_time)
+            elif bit == '1':
+                self.sleep_random_time_ms(min_1_time, max_1_time)
+            
+            a += 1
+            print(f"a: {a}, bit: {bit}")
+
+            # Send a packet after the timing delay
             dummy_message = self.generate_random_message()
             packet = ether / Raw(dummy_message)
             super().send(packet)
 
-            if bit == '0':
-                self.sleep_random_time_ms(0, self.send_time_0_max)
-            elif bit == '1':
-                self.sleep_random_time_ms(self.send_time_1_min, self.send_time_1_max)
-        
-    def receive(self, parameter1, parameter2, parameter3, log_file_name):
-        """
-        - Captures incoming LLC packets and measures their arrival times.
-        - Decodes the binary message based on inter-packet timing with the same consensus as the sender.
-        """
-        def packet_handler(packet):
-            """
-            Handles each received packet to decode the covert timing channel.
-            - Measures the inter-arrival time and translates it into a binary bit (0 or 1).
-            - Converts the received bits into characters and adds them to the message.
-            """
-            currentTime = time.time()
+        end_time = time.time()
 
-            # If it's the first packet, store the timestamp
+        print(f"The covert channel capacity is {128/(end_time - start_time)} byte per seconds.")
+        
+        
+    def receive(self, log_file_name, threshold_ms, src_ip):
+        """
+        Receives and decodes binary information from timing intervals between packets:
+        - Calculates inter-arrival times to determine whether each bit is '0' or '1'.
+        - Reconstructs the binary message, converts it to characters, and logs the result.
+        - Uses `threshold_ms` to differentiate between '0' and '1'.
+        - Stops decoding when a termination character (e.g., '.') is received.
+        """
+        max_1_time = 3 * threshold_ms
+
+        def packet_handler(packet):
+            currentTime = packet.time
+
+            # If this is the first packet, initialize the timestamp
             if self.timestamp == 0:
                 self.timestamp = currentTime
                 return
 
-            # Calculate the inter-arrival time in milliseconds
+            # Calculate time difference between consecutive packets
             timeDifferenceMs = (currentTime - self.timestamp) * 1000
             self.timestamp = currentTime
 
-            print(timeDifferenceMs)
+            # Determine the bit ('0' or '1') based on the timing difference
+            if 0 <= timeDifferenceMs <= threshold_ms:
+                self.msg_bits += "0"
+            elif threshold_ms <= timeDifferenceMs <= max_1_time:
+                self.msg_bits += "1"
 
-            # Decode bit based on inter-arrival time
-            if 0 <= timeDifferenceMs <= self.receive_time_0_1:
-                self.message += "0"
-            elif self.receive_time_0_1 <= timeDifferenceMs:
-                self.message += "1"
+            print(self.msg_bits)
 
-            # Convert 8 bits into a character
-            if len(self.message) == 8:
-                convertedMessage = self.convert_eight_bits_to_character(self.message)
-                self.message = ""
-                self.lastmessage += convertedMessage
-                self.lastconvertedMessage = convertedMessage
+            # Convert 8 bits to a character and add it to the message
+            if len(self.msg_bits) == 8:
+                convertedMessage = self.convert_eight_bits_to_character(self.msg_bits)
+                self.msg_bits = ""
+                self.received_msg += convertedMessage
+                print(self.received_msg)
             
-            if self.lastconvertedMessage == ".":
-                raise Exception("End of the message")
-
+            # Stop processing when the termination character is received
+            if len(self.received_msg) > 1 and self.received_msg[-1] == ".":
+                raise Exception()
+        
         try:
-            sniff(prn=packet_handler, filter="ip src 172.18.0.2", timeout = parameter3)
+            # Sniff incoming packets from the specified source IP
+            sniff(prn=packet_handler, filter=f"ip src {src_ip}")
         except Exception as e:
-            print("Dot")
+            print("Termination char is received.")
 
-        print("here")
-        self.lastmessage += "."
-        self.log_message(self.lastmessage, log_file_name)
+        # Log the reconstructed message
+        self.log_message(self.received_msg, log_file_name)

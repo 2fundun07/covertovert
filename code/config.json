@@ -2,17 +2,16 @@
   "covert_channel_code": "CTC-PIT-LLC",
   "send": {
     "parameters": {
-      "parameter1": 5,
-      "parameter2": 80,
-      "log_file_name": "Example_UDPTimingInterarrivalChannelSender.log"
+      "threshold_ms": 200,
+      "error_ms": 100,
+      "log_file_name": "LLCTimingInterarrivalChannelSender.log"
     }
   },
   "receive": {
     "parameters": {
-      "parameter1": 5,
-      "parameter2": 80,
-      "parameter3": 300,
-      "log_file_name": "Example_UDPTimingInterarrivalChannelReceiver.log"
+      "threshold_ms": 200,
+      "src_ip": "172.18.0.2",
+      "log_file_name": "LLCTimingInterarrivalChannelReceiver.log"
     }
   }
 }
