@@ -1,9 +1,57 @@
-# Covert Timing Channel
+# Covert Timing Channel Over LLC Layer
 
-This project implements a covert timing channel that leverages inter-arrival times of packets at the LLC (Logical Link Control) layer. The covert channel encodes binary messages (bits) into timing intervals between packets and transmits them across a network. The receiver decodes the message by interpreting these inter-arrival times. This project is designed as a proof of concept for covert communication over a network and demonstrates the trade-offs between throughput, timing accuracy, and network noise.
+## Overview
+This project implements a **covert timing channel** that encodes binary messages into **inter-arrival times** of packets at the Logical Link Control (LLC) layer. The sender encodes each bit into timing intervals between packets, and the receiver decodes the message by analyzing these intervals. This proof of concept demonstrates how timing channels can be used for covert communication over a network.
 
-Each bit is encoded into a timing interval: a bit '0' is sent after a short delay, and a bit '1' is sent after a long delay. The receiver measures the inter-arrival time between packets to determine if the bit was '0' or '1'. A threshold (threshold_ms) is used to differentiate between the two delays. The sender generates a random binary message of 128 bits (16 characters) and encodes each bit into inter-packet delays before transmitting packets with dummy payloads. The receiver captures packets and decodes the message based on the measured inter-arrival times.
+---
 
-The covert channel's capacity is calculated by dividing the number of bits sent by the total transmission time. The sender encodes each bit into a timing delay: for '0', a random delay between 0 and threshold_ms - error_ms is used, and for '1', a random delay between threshold_ms + error_ms and 2 * threshold_ms. The receiver captures incoming packets, measures the inter-arrival times, and decodes the bits accordingly.
+## Logic
 
-In the experimental setup, the threshold was set to 200 ms and the error margin to 100 ms, resulting in a measured capacity of approximately 4 bits per second. The performance is limited by several factors. The resolution of the system clock and network jitter restrict the accuracy of timing intervals, potentially leading to decoding errors if the system's clock resolution is too low (e.g., 1 ms). High network jitter can blur the distinction between '0' and '1' delays, reducing accuracy. To mitigate this, larger gaps between delays (e.g., 50 ms vs. 100 ms) were used, but this reduces capacity. Furthermore, the threshold_ms and error_ms values must be carefully tuned for each environment. A threshold that's too small can cause overlap between '0' and '1' delays due to jitter, while a threshold that's too large reduces capacity.
+### Encoding
+- Each binary bit is encoded into a timing interval:
+  - **Bit `0`**: A short random delay, ranging from `0` to `threshold_ms - error_ms`.
+  - **Bit `1`**: A long random delay, ranging from `threshold_ms + error_ms` to `2 * threshold_ms`.
+- These delays ensure a clear distinction between `0` and `1`, minimizing potential overlaps due to network jitter.
+
+### Decoding
+- The receiver measures the **inter-arrival times** of packets.
+  - If the delay is less than or equal to `threshold_ms + error_ms`, it is interpreted as a `0`.
+  - If the delay is greater than `threshold_ms + error_ms`, it is interpreted as a `1`.
+- Once 8 bits are received, they are grouped and converted into a character. The process repeats until the full message is reconstructed.
+
+### Timing Parameters
+- **Threshold (`threshold_ms`)**: The central value that separates the timing ranges for `0` and `1`.
+  - A value of `150 ms` was chosen for this project to balance throughput and robustness.
+- **Error Margin (`error_ms`)**: Provides tolerance for handling network noise and jitter.
+  - Set to `80 ms` to ensure clear separation between timing intervals.
+
+---
+
+## Results
+
+- **Message Size**: 128 bits (16 characters).
+- **Transmission Time**: Approximately 25.6 seconds.
+- **Measured Capacity**: ~5 bits per second.
+
+---
+
+## Limitations
+
+1. **Clock Resolution**: 
+   - The accuracy of the timing intervals depends on the system clock's resolution. A low-resolution clock can cause inaccuracies in measuring inter-arrival times, leading to decoding errors.
+
+2. **Network Jitter**:
+   - Variability in network delays can blur the distinction between `0` and `1` intervals, especially if the actual delays deviate significantly from the configured ranges.
+
+3. **Capacity vs. Robustness**:
+   - Increasing the gap between `0` and `1` intervals improves robustness but reduces capacity. The chosen parameters represent a trade-off to achieve moderate throughput with reasonable accuracy.
+
+4. **Threshold Sensitivity**:
+   - The `threshold_ms` and `error_ms` values are environment-specific. Small deviations in these parameters can cause decoding errors, requiring careful tuning for each network setup.
+
+---
+
+## Conclusion
+
+This project demonstrates a functional covert timing channel with a measured capacity of **5 bits per second**, achieved by encoding binary data into inter-arrival times of LLC packets. The results highlight the potential of timing-based communication while illustrating the challenges posed by clock resolution and network noise.
+
