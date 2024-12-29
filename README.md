@@ -1,39 +1,9 @@
-# COVERTOVERT
-Open source implementation of "network" covert channels.
+# Covert Timing Channel
 
-## Installation
+This project implements a covert timing channel that leverages inter-arrival times of packets at the LLC (Logical Link Control) layer. The covert channel encodes binary messages (bits) into timing intervals between packets and transmits them across a network. The receiver decodes the message by interpreting these inter-arrival times. This project is designed as a proof of concept for covert communication over a network and demonstrates the trade-offs between throughput, timing accuracy, and network noise.
 
-Install docker (and optionally compose V2 plugin - not the docker-compose!) and VSCode on your sytstem. Run the docker containers as non-root users.
+Each bit is encoded into a timing interval: a bit '0' is sent after a short delay, and a bit '1' is sent after a long delay. The receiver measures the inter-arrival time between packets to determine if the bit was '0' or '1'. A threshold (threshold_ms) is used to differentiate between the two delays. The sender generates a random binary message of 128 bits (16 characters) and encodes each bit into inter-packet delays before transmitting packets with dummy payloads. The receiver captures packets and decodes the message based on the measured inter-arrival times.
 
-To start sender and receiver containers:
-```
-docker compose up -d
-```
+The covert channel's capacity is calculated by dividing the number of bits sent by the total transmission time. The sender encodes each bit into a timing delay: for '0', a random delay between 0 and threshold_ms - error_ms is used, and for '1', a random delay between threshold_ms + error_ms and 2 * threshold_ms. The receiver captures incoming packets, measures the inter-arrival times, and decodes the bits accordingly.
 
-To stop sender and receiver containers:
-```
-docker compose down
-```
-
-Note that, if you orchestrate your containers using docker compose, the containers will have hostnames ("sender" and "receiver") and DNS will be able to resolve them...
-
-In one terminal, attach to the sender container
-```
-docker exec -it sender bash
-```
-In another terminal, attach to the receiver container
-```
-docker exec -it receiver bash
-```
-
-and you will be in your Ubuntu 22.04 Docker instance (python3.10.12 and scapy installed). After running the Ubuntu Docker, you can type "ip addr" or "ifconfig" to see your network configuration (work on eth0).
-
-Docker extension of VSCode will be of great benefit to you.
-
-Note that if you develop code in these Docker instances and you stop the machine, your code will be lost. That is why it is recommended to use Github to store your code and clone in the machine, and push your code to Github before shutting the Docker instances down. The other option is to work in the /app folder in the sender and receiver Docker instances which are mounted to the "code" directory of your own machine.
-
-**IMPORTANT** Note that the "code" folder on your local machine are mounted to the "/app" folder (be careful it is in the root folder) in the sender and receiver Docker instances (read/write mode). You can use these folders (they are the same in fact) to develop your code. Other than the /app folder, this tool does not guarantee any persistent storage: if you exit the Docker instance, all data will be lost.
-
-You can develop your code on your local folders ("code/sender" and "code/receiver") on your own host machine, they will be immediately synchronized with the "/app" folder on containers. The volumes are created in read-write mode, so changes can be made both on the host or on the containers. You can run your code on the containers.
-
-Additionally, the local "examples" folder is mapped to the "/examples" folder in the containers. In that folder, there is a covert timing channel example including sender, receiver and base classes. In the second phase, you will implement a similar system, so it is recommended to look at the example for now.
+In the experimental setup, the threshold was set to 200 ms and the error margin to 100 ms, resulting in a measured capacity of approximately 4 bits per second. The performance is limited by several factors. The resolution of the system clock and network jitter restrict the accuracy of timing intervals, potentially leading to decoding errors if the system's clock resolution is too low (e.g., 1 ms). High network jitter can blur the distinction between '0' and '1' delays, reducing accuracy. To mitigate this, larger gaps between delays (e.g., 50 ms vs. 100 ms) were used, but this reduces capacity. Furthermore, the threshold_ms and error_ms values must be carefully tuned for each environment. A threshold that's too small can cause overlap between '0' and '1' delays due to jitter, while a threshold that's too large reduces capacity.
