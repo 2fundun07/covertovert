@@ -46,42 +46,20 @@ class MyCovertChannel(CovertChannelBase):
 
         a = 0
         for bit in message_to_transfer:
-            # Add timing delay based on the bit ('0' or '1')
             t0 = time.time()
-
-            if bit == '0':
-                self.sleep_random_time_ms(0, max_0_time)
-            elif bit == '1':
-                self.sleep_random_time_ms(min_1_time, max_1_time)
-
-            t1 = time.time()
-
-            if (bit == '0' and (t1-t0) > min_1_time):
-                killer_message = self.generate_random_message(1,2)
-                packet = ether / Raw(killer_message_message)
-                super().send(packet)
-            else:
-                a += 1
-                print(f"a: {a}, bit: {bit}")
-
-                # Send a packet after the timing delay
-                dummy_message = self.generate_random_message()
-                packet = ether / Raw(dummy_message)
-                super().send(packet)
-                continue
-
-            if bit == '0':
-                self.sleep_random_time_ms(0, max_0_time)
-            elif bit == '1':
-                self.sleep_random_time_ms(min_1_time, max_1_time)
-
             a += 1
             print(f"a: {a}, bit: {bit}")
 
             # Send a packet after the timing delay
             dummy_message = self.generate_random_message()
             packet = ether / Raw(dummy_message)
+            if bit == '0':
+                self.sleep_random_time_ms(0, max_0_time)
+            elif bit == '1':
+                self.sleep_random_time_ms(min_1_time, max_1_time)
             super().send(packet)
+            t1 = time.time()
+            #print((t1-t0)*1000)
 
         end_time = time.time()
 
@@ -101,22 +79,19 @@ class MyCovertChannel(CovertChannelBase):
         def packet_handler(packet):
             currentTime = packet.time
 
-            # If this is the first packet, initialize the timestamp
-            if self.timestamp == 0:
-                self.timestamp = currentTime
-                return
-
             # Calculate time difference between consecutive packets
             timeDifferenceMs = (currentTime - self.timestamp) * 1000
-            self.timestamp = currentTime
+            #print(timeDifferenceMs)
 
-            if (len(packet) < 4):
+            # If this is the first packet, initialize the timestamp
+            if self.timestamp == 0:
+                self.timestamp = packet.time
                 return
 
             # Determine the bit ('0' or '1') based on the timing difference
             if 0 <= timeDifferenceMs <= (threshold_ms + error_ms):
                 self.msg_bits += "0"
-            elif (threshold_ms + error_ms) <= timeDifferenceMs:
+            else:
                 self.msg_bits += "1"
 
             print(self.msg_bits)
@@ -131,6 +106,8 @@ class MyCovertChannel(CovertChannelBase):
             # Stop processing when the termination character is received
             if len(self.received_msg) > 1 and self.received_msg[-1] == ".":
                 raise Exception()
+            
+            self.timestamp = packet.time
         
         try:
             # Sniff incoming packets from the specified source IP
