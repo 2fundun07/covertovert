@@ -47,11 +47,34 @@ class MyCovertChannel(CovertChannelBase):
         a = 0
         for bit in message_to_transfer:
             # Add timing delay based on the bit ('0' or '1')
+            t0 = time.time()
+
             if bit == '0':
                 self.sleep_random_time_ms(0, max_0_time)
             elif bit == '1':
                 self.sleep_random_time_ms(min_1_time, max_1_time)
-            
+
+            t1 = time.time()
+
+            if (bit == '0' and (t1-t0) > min_1_time):
+                killer_message = self.generate_random_message(1,2)
+                packet = ether / Raw(killer_message_message)
+                super().send(packet)
+            else:
+                a += 1
+                print(f"a: {a}, bit: {bit}")
+
+                # Send a packet after the timing delay
+                dummy_message = self.generate_random_message()
+                packet = ether / Raw(dummy_message)
+                super().send(packet)
+                continue
+
+            if bit == '0':
+                self.sleep_random_time_ms(0, max_0_time)
+            elif bit == '1':
+                self.sleep_random_time_ms(min_1_time, max_1_time)
+
             a += 1
             print(f"a: {a}, bit: {bit}")
 
@@ -65,7 +88,7 @@ class MyCovertChannel(CovertChannelBase):
         print(f"The covert channel capacity is {128/(end_time - start_time)} byte per seconds.")
         
         
-    def receive(self, log_file_name, threshold_ms, src_ip):
+    def receive(self, log_file_name, threshold_ms, error_ms, src_ip):
         """
         Receives and decodes binary information from timing intervals between packets:
         - Calculates inter-arrival times to determine whether each bit is '0' or '1'.
@@ -87,10 +110,13 @@ class MyCovertChannel(CovertChannelBase):
             timeDifferenceMs = (currentTime - self.timestamp) * 1000
             self.timestamp = currentTime
 
+            if (len(packet) < 4):
+                return
+
             # Determine the bit ('0' or '1') based on the timing difference
-            if 0 <= timeDifferenceMs <= threshold_ms:
+            if 0 <= timeDifferenceMs <= (threshold_ms + error_ms):
                 self.msg_bits += "0"
-            elif threshold_ms <= timeDifferenceMs <= max_1_time:
+            elif (threshold_ms + error_ms) <= timeDifferenceMs:
                 self.msg_bits += "1"
 
             print(self.msg_bits)
